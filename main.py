@@ -5,6 +5,11 @@ import time
 import requests
 import schedule
 
+'''
+ @author Aaron Yeung
+ @date 2022/22/8
+'''
+
 log_format = "%(asctime)s -- %(levelname)s  -- %(message)s"
 # level info
 logging.basicConfig(level=logging.INFO, format=log_format)
@@ -35,6 +40,7 @@ headers = {
 
 healthInfo = {
     "location": "中国/xx省/xx市/xx市/xx镇/xxx/nation_code/address_code/city_code/town_id",
+    # 注意这个是字符串"[]", 不是[]
     "t1": "[\"无下列情况\"]",
     "t2": "无不适症状",
     "t3": "暑假已离校",
@@ -49,24 +55,23 @@ healthInfo = {
 
 
 def login(username, password):
-    logging.info('开始登录, username = {}, password = {}', username, password)
+    logging.info('开始登录, username = {}, password = {}'.format(username, password))
     headers['referer'] = 'https://gw.wozaixiaoyuan.com/h5/mobile/basicinfo/index/login/index?jwcode=10'
     response = requests.get(loginUrl.format(username, password), headers=headers)
     res = json.loads(response.text)
     if res['code'] != 0:
         logging.info('login response = {}'.format(response.text))
         raise Exception('登录失败, 账号或密码错误')
-    session = response.headers['jwsession']
-    logging.info("session = {}".format(session))
-    setSession(session)
+    setSession(response.headers['jwsession'])
 
 
 def setSession(session):
+    logging.info("session = {}".format(session))
     headers['jwsession'] = session
     headers['cookie'] = 'JWSESSION={}'.format(session)
 
 
-def getBatchId():
+def getHealthBatchId():
     headers['referer'] = "https://gw.wozaixiaoyuan.com/h5/mobile/health/index/health"
     resText = requests.get(getBatchUrl, headers=headers).text
     res = json.loads(resText)
@@ -79,17 +84,21 @@ def getBatchId():
     return res['data']['list'][0]['id']
 
 
-def getForm(batchId):
+def getHealthForm(batchId):
+    if batchId is None:
+        raise Exception("batch id 为空")
     headers["referer"] = "https://gw.wozaixiaoyuan.com/h5/mobile/health/index/health/detail?id={}".format(batchId)
     resText = requests.get(getFormUrl.format(batchId), headers=headers).text
     res = json.loads(resText)
     logging.info('getForm response = {}'.format(resText))
     if res['code'] != 0:
-        raise Exception('无法获取form,可能管理员设置有误, 任务结束')
-    return res['data']['fields']
+        raise Exception('无法获取healthForm, 任务结束')
+    return res['data']
 
 
 def healthSave(batchId):
+    if batchId is None:
+        raise Exception("batch id 为空")
     headers['referer'] = 'https://gw.wozaixiaoyuan.com/h5/mobile/health/0.2.7/health/detail?id={}'.format(batchId)
     resText = requests.post(healthSaveUrl.format(batchId), headers=headers, data=json.dumps(healthInfo)).text
     res = json.loads(resText)
@@ -99,24 +108,57 @@ def healthSave(batchId):
     logging.info('健康打卡成功, response = {}'.format(resText))
 
 
-def checkForm(healthForm):
-    # todo
-    return None
+def checkHealthInfo(healthForm):
+    if healthForm is None:
+        raise Exception("获取填写问题失败")
+
+    fields = healthForm['fields']
+    options = healthForm['options']
+    for item in fields:
+        # 如果没有填写
+        if item['field'] not in healthInfo:
+            raise Exception('没有设置该项的答案, {} , {}'.format(item['field'], item['name']))
+
+        if item['field'] == 'location':
+            if healthInfo['location'] in [None, '']:
+                raise Exception("location设置有错")
+        else:
+            values = []
+            valid = True
+            # 获取所有答案
+            for option in options[item['optionId']]:
+                values.append(option['value'])
+            # 多选
+            if item['type'] == 3:
+                size = len(set(json.loads(healthInfo[item['field']])).difference(values))
+                if size != 0:
+                    valid = False
+            else:
+                if healthInfo[item['field']] not in values:
+                    valid = False
+
+            if not valid:
+                raise Exception(
+                    'healthInfo设置有误,请检查是否是提供的选项(不能有空格或不同符号), 错误项: {}, {}'.
+                    format(item['field'], item['name']))
+    logging.info("healthInfo is ok")
 
 
 def job():
     logging.info("开始打卡, session= {}".format(headers['jwsession']))
-    batchId = getBatchId()
+    batchId = getHealthBatchId()
     # 已经打卡了
     if batchId is None:
         return
-    getForm(batchId)
+    healthForm = getHealthForm(batchId)
+    # 检查信息
+    checkHealthInfo(healthForm)
     # 打卡
     healthSave(batchId)
 
 
 # 防止session失效, 每小时请求一次 getBatch
-schedule.every().hour.at(":10").do(getBatchId)
+schedule.every().hour.at(":10").do(getHealthBatchId)
 schedule.every().day.at("10:10").do(job)
 schedule.every().day.at("13:10").do(job)
 
