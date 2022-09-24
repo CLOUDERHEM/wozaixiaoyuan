@@ -11,7 +11,7 @@
         * 多选为: `tn:"[\"answer1\",\"answer2\"]`"
     * 位置信息 :
         * `location:"中国/xx省/xx市/xx市/xx镇/xxx/nation_code/adcode/city_code/townId"`
-
+5. 在`mail.py`中配置邮件账号
 ## 注意
 
 * 如果打卡失败之后请不要多次尝试, 我在校园会封禁处理24小时
