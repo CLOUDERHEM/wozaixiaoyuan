@@ -11,6 +11,7 @@
         * 多选为: `tn:"[\"answer1\",\"answer2\"]`"
     * 位置信息 :
         * `location:"中国/xx省/xx市/xx市/xx镇/xxx/nation_code/adcode/city_code/townId"`
+5. 启动: `nohup python3 main.py &`
 
 ## 注意
 
