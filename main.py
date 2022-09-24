@@ -4,6 +4,7 @@ import time
 
 import requests
 import schedule
+import mail
 
 '''
  @author Aaron Yeung
@@ -149,16 +150,20 @@ def checkHealthInfo(healthForm):
 
 
 def job():
-    login(username, password)
-    batchId = getHealthBatchId()
-    # 已经打卡了
-    if batchId is None:
-        return
-    healthForm = getHealthForm(batchId)
-    # 检查信息
-    checkHealthInfo(healthForm)
-    # 打卡
-    healthSave(batchId)
+    try:
+        login(username, password)
+        batchId = getHealthBatchId()
+        # 已经打卡了
+        if batchId is None:
+            return
+        healthForm = getHealthForm(batchId)
+        # 检查信息
+        checkHealthInfo(healthForm)
+        # 打卡
+        healthSave(batchId)
+        mail.send_success("打卡成功 healthInfo: {}".format(healthInfo))
+    except Exception as e:
+        mail.send_error("打卡失败 error: {}".format(str(e)))
 
 
 schedule.every().day.at("10:10").do(job)
