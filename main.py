@@ -38,8 +38,11 @@ headers = {
     "Host": "gw.wozaixiaoyuan.com",
 }
 
+username = 'xx'
+password = 'xx'
+
 healthInfo = {
-    "location": "中国/xx省/xx市/xx市/xx镇/xxx/nation_code/address_code/city_code/town_id",
+    "location": "",
     # 注意这个是字符串"[]", 不是[]
     "t1": "[\"无下列情况\"]",
     "t2": "无不适症状",
@@ -54,10 +57,10 @@ healthInfo = {
 }
 
 
-def login(username, password):
-    logging.info('开始登录, username = {}, password = {}'.format(username, password))
+def login(_username, _password):
+    logging.info('开始登录, username = {}, password = {}'.format(_username, _password))
     headers['referer'] = 'https://gw.wozaixiaoyuan.com/h5/mobile/basicinfo/index/login/index?jwcode=10'
-    response = requests.get(loginUrl.format(username, password), headers=headers)
+    response = requests.get(loginUrl.format(_username, _password), headers=headers)
     res = json.loads(response.text)
     if res['code'] != 0:
         logging.info('login response = {}'.format(response.text))
@@ -96,7 +99,7 @@ def getHealthForm(batchId):
     return res['data']
 
 
-def healthSave(batchId):
+def healthSave(batchId) -> bool:
     if batchId is None:
         raise Exception("batch id 为空")
     headers['referer'] = 'https://gw.wozaixiaoyuan.com/h5/mobile/health/0.2.7/health/detail?id={}'.format(batchId)
@@ -106,6 +109,7 @@ def healthSave(batchId):
         logging.error("健康打卡失败, save response = {}".format(resText))
         raise Exception('健康打卡失败, 任务结束 : {}'.format(resText))
     logging.info('健康打卡成功, response = {}'.format(resText))
+    return True
 
 
 def checkHealthInfo(healthForm):
@@ -145,7 +149,7 @@ def checkHealthInfo(healthForm):
 
 
 def job():
-    logging.info("开始打卡, session= {}".format(headers['jwsession']))
+    login(username, password)
     batchId = getHealthBatchId()
     # 已经打卡了
     if batchId is None:
@@ -157,16 +161,11 @@ def job():
     healthSave(batchId)
 
 
-# 防止session失效, 每小时请求一次 getBatch
-schedule.every().hour.at(":10").do(getHealthBatchId)
 schedule.every().day.at("10:10").do(job)
 schedule.every().day.at("13:10").do(job)
 
 
 def main():
-    username = 'xxx'
-    password = 'xxx'
-    login(username, password)
     while True:
         schedule.run_pending()
         time.sleep(1)
