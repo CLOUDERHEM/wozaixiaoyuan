@@ -28,8 +28,8 @@ def send_mail(subject, msg):
     message['Subject'] = Header(subject, 'utf-8')
 
     try:
-        smtpObj = smtplib.SMTP()
-        smtpObj.connect(mail_host, 25)
+        smtpObj = smtplib.SMTP_SSL(mail_host, 465)
+        smtpObj.ehlo()
         smtpObj.login(mail_user, mail_pass)
         smtpObj.sendmail(sender, receivers, message.as_string())
         logging.info("邮件发送成功: sender={}, receivers={}".format(sender, receivers))
